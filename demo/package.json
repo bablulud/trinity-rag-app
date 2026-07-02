@@ -1,0 +1,13 @@
+{
+  "name": "trinity-rag-demo-recorder",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright script that records a real product-in-action walkthrough of the Ask Trinity app.",
+  "scripts": {
+    "record": "node record.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.49.1"
+  }
+}

@@ -15,9 +15,19 @@ PDFs → parse (pdfplumber) → chunk → embed → ChromaDB
 
 ## Demo
 
-![Ask Trinity — animated walkthrough](docs/media/demo.gif)
+**Product in action** — a real recorded session: ask a question, get a grounded
+answer with cited sources and live latency/token metrics, then switch the model
+and `TOP_K` in `config.py` and **re-run the same question to compare performance**.
 
-▶️ **[Watch the full-quality walkthrough (MP4, 1080p)](docs/media/ask-trinity-promo.mp4)**
+![Ask Trinity — live product walkthrough](docs/media/product-in-action.gif)
+
+▶️ **[Watch the live demo (MP4)](docs/media/product-in-action.mp4)** · 🎬 **[Animated promo (MP4, 1080p)](docs/media/ask-trinity-promo.mp4)**
+
+<details>
+<summary>Animated promo (motion graphics)</summary>
+
+![Ask Trinity — animated promo](docs/media/demo.gif)
+</details>
 
 ### Screenshots
 
@@ -107,9 +117,19 @@ uvicorn app:app --reload --port 8000
 - **Costs:** generation and OpenAI embeddings call the OpenAI API and incur usage
   charges. Local embeddings + your own PDFs keep indexing free.
 
-## Promo video (source)
-The animated walkthrough in [Demo](#demo) is generated from code with
-[Remotion](https://www.remotion.dev/) — it lives in `video/`.
+## Media (source)
+Both videos in [Demo](#demo) are reproducible from code:
+
+**Live product recording** (`demo/`) — a [Playwright](https://playwright.dev/)
+script that drives the running app and records the real session.
+```bash
+# with the app running on localhost:8000
+cd demo
+npm install && npx playwright install chromium
+npm run record    # → recordings/*.webm
+```
+
+**Animated promo** (`video/`) — built with [Remotion](https://www.remotion.dev/).
 ```bash
 cd video
 npm install
@@ -122,7 +142,8 @@ npm run render    # → out/ask-trinity-promo.mp4
 trinity-rag-app/
 ├── docker-compose.yml
 ├── .env.example
-├── docs/media/               # README video + screenshots
+├── docs/media/               # README videos + screenshots
+├── demo/                     # Playwright live-demo recorder
 ├── video/                    # Remotion promo-video project
 └── backend/
     ├── Dockerfile

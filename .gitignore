@@ -14,3 +14,7 @@ backend/.venv/
 # Node / Remotion (promo video project)
 node_modules/
 video/out/
+
+# Playwright demo recorder raw output
+demo/recordings/
+demo/test-results/
