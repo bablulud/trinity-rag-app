@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Trinity — RAG Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400;1,600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  :root{--slate:#7a929b;--orange:#be4d00;--orange-d:#a83f00;--ink:#23282b;--muted:#8a9296;--line:#e6e9eb}
+  html,body{margin:0;height:100%}
+  body{font-family:'Titillium Web',system-ui,sans-serif;color:#2b3133;background:#fff}
+  #app{position:relative;height:100vh;overflow:hidden}
+  .scroll::-webkit-scrollbar{width:10px}
+  .scroll::-webkit-scrollbar-thumb{background:rgba(122,146,155,.4);border-radius:20px;border:3px solid transparent;background-clip:padding-box}
+  button{font-family:inherit}
+  /* markdown */
+  .md>*:first-child{margin-top:0}.md>*:last-child{margin-bottom:0}
+  .md p{margin:0 0 12px}
+  .md h1,.md h2,.md h3{font-family:'Titillium Web',sans-serif;font-weight:700;line-height:1.25;margin:20px 0 10px;color:var(--ink);letter-spacing:.2px}
+  .md h1{font-size:22px;text-transform:uppercase}.md h2{font-size:18px}.md h3{font-size:16px}
+  .md ul,.md ol{margin:0 0 12px;padding-left:22px}.md li{margin:4px 0}
+  .md strong{color:var(--ink);font-weight:700}
+  .md a{color:var(--orange);text-underline-offset:2px}
+  .md code{font-family:ui-monospace,Menlo,monospace;font-size:.88em;background:#eceff1;padding:2px 5px;border-radius:4px}
+  .md pre{background:var(--ink);color:#eceff1;padding:14px 16px;border-radius:8px;overflow-x:auto;margin:0 0 12px}
+  .md pre code{background:none;padding:0;color:inherit}
+  .md table{border-collapse:collapse;width:100%;margin:0 0 12px;font-size:14px}
+  .md th,.md td{border:1px solid #dfe3e6;padding:7px 10px;text-align:left}
+  .md th{background:#eef1f3;font-weight:700;text-transform:uppercase;font-size:12px}
+  @keyframes blink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .drawer{position:absolute;top:0;bottom:0;z-index:50;display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.4,0,.2,1),box-shadow .3s}
+  .range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:20px;background:#dbe0e2;outline:none}
+  .range::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .range::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid #fff}
+  select,input[type=text]{width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--ink);background:#fff;border:1px solid #dbe0e2;border-radius:7px;padding:9px 10px}
+  select:focus,input:focus{border-color:var(--slate);outline:none}
+  .chip:hover{border-color:var(--slate)!important;background:#fff!important;box-shadow:0 4px 14px rgba(122,146,155,.18);transform:translateY(-1px)}
+  .icon:hover{background:rgba(122,146,155,.14)!important}
+  .send:hover,.newbtn:hover,.rerun:not([disabled]):hover{background:var(--orange-d)!important}
+  .ghost:hover{color:var(--orange)!important}
+  .cfgbtn:hover{border-color:var(--slate)!important;color:var(--orange)!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- backdrop -->
+  <div id="backdrop" style="position:absolute;inset:0;z-index:45;background:rgba(35,40,43,.4);opacity:0;pointer-events:none;transition:opacity .28s"></div>
+
+  <!-- LEFT DRAWER -->
+  <aside id="left" class="drawer" style="left:0;width:288px;background:#eef1f2;border-right:1px solid #dfe3e6;transform:translateX(-100%)">
+    <div style="padding:18px 16px 14px;display:flex;align-items:center;gap:11px;border-bottom:1px solid #e2e6e8">
+      <img src="assets/trinity-mark.png" alt="" style="width:34px;height:34px;object-fit:contain">
+      <div style="flex:1;line-height:1.05">
+        <div style="font-weight:700;font-size:16px;color:var(--ink)">Ask <span style="color:var(--slate)">Trinity</span></div>
+        <div style="font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:1.2px">RAIL KNOWLEDGE AGENT</div>
+      </div>
+      <button class="icon" data-close style="width:32px;height:32px;border:none;background:transparent;border-radius:8px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:14px">
+      <button class="newbtn" id="newChat" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:11px 14px;font-size:14px;font-weight:700;text-transform:uppercase;cursor:pointer">+ New Chat</button>
+    </div>
+    <div style="padding:12px 18px 6px;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted)">RECENT</div>
+    <div class="scroll" id="recent" style="flex:1;overflow-y:auto;padding:0 10px 10px"></div>
+    <div style="padding:14px 16px;border-top:1px solid #e2e6e8;display:flex;align-items:center;gap:10px">
+      <div style="width:30px;height:30px;border-radius:7px;background:var(--slate);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">TR</div>
+      <div style="font-size:12.5px;color:#5c6468;line-height:1.35">Connected to <strong id="footCollection" style="color:var(--ink)">documents</strong><br><span id="footChunks" style="font-size:11px;color:var(--muted)">ChromaDB</span></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT CONFIG DRAWER -->
+  <aside id="right" class="drawer" style="right:0;width:340px;max-width:88vw;background:#f4f6f7;border-left:1px solid #dfe3e6;transform:translateX(100%)">
+    <div style="padding:16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e2e6e8;background:#fff">
+      <span style="color:var(--orange);font-weight:700">⚙</span>
+      <div style="flex:1;line-height:1.1">
+        <div style="font-weight:700;font-size:14.5px;color:var(--ink);font-family:ui-monospace,Menlo,monospace">config.py</div>
+        <div style="font-size:10.5px;color:var(--muted);font-weight:600">RETRIEVAL &amp; GENERATION SETTINGS</div>
+      </div>
+      <button class="icon" data-close style="width:32px;height:32px;border:none;background:transparent;border-radius:8px;cursor:pointer">✕</button>
+    </div>
+    <div class="scroll" style="flex:1;overflow-y:auto;padding:16px">
+      <div class="lbl">EMBEDDING</div>
+      <label class="k">EMBEDDING_MODEL</label>
+      <select id="cfgEmbed"></select>
+      <div class="lbl" style="margin-top:16px">CHUNKING</div>
+      <div class="row"><label class="k">CHUNK_SIZE</label><span id="valChunk" class="v">1000</span></div>
+      <input class="range" id="cfgChunk" type="range" min="256" max="2000" step="64" value="1000">
+      <div class="row" style="margin-top:12px"><label class="k">CHUNK_OVERLAP</label><span id="valOverlap" class="v">200</span></div>
+      <input class="range" id="cfgOverlap" type="range" min="0" max="400" step="20" value="200">
+      <div class="lbl" style="margin-top:16px">VECTOR STORE</div>
+      <label class="k">CHROMA_COLLECTION_NAME</label>
+      <input type="text" id="cfgCollection" value="documents">
+      <div class="row" style="margin-top:12px"><label class="k">TOP_K</label><span id="valTopk" class="v">8</span></div>
+      <input class="range" id="cfgTopk" type="range" min="1" max="12" step="1" value="8">
+      <div class="lbl" style="margin-top:16px">GENERATION</div>
+      <label class="k">LLM_MODEL</label>
+      <select id="cfgLlm"></select>
+      <div id="reindexNote" style="margin-top:14px;font-size:11px;color:var(--orange);display:none">Chunking/embedding changed — a re-index is required for retrieval to use them.</div>
+    </div>
+    <div style="padding:14px 16px;border-top:1px solid #e2e6e8;background:#fff;display:flex;flex-direction:column;gap:9px">
+      <div id="rerunHint" style="font-size:11px;color:var(--muted);line-height:1.4"></div>
+      <button class="rerun" id="rerunBtn" disabled style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#c9ccce;color:#fff;border:none;border-radius:8px;padding:12px;font-size:13.5px;font-weight:700;text-transform:uppercase;cursor:not-allowed">↻ Apply &amp; Re-run</button>
+      <button class="reidx" id="reindexBtn" style="width:100%;background:#fff;color:var(--slate);border:1px solid #dbe0e2;border-radius:8px;padding:10px;font-size:12px;font-weight:700;text-transform:uppercase;cursor:pointer">Re-index vector store</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main style="height:100%;display:flex;flex-direction:column;background:#fff">
+    <div style="height:58px;flex:none;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 18px">
+      <button class="icon" id="menuBtn" style="width:38px;height:38px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-size:18px">☰</button>
+      <img src="assets/trinity-mark.png" alt="" style="width:30px;height:30px;object-fit:contain">
+      <div style="font-weight:700;font-size:16px;color:var(--ink)">Ask <span style="color:var(--slate)">Trinity</span></div>
+      <div style="flex:1"></div>
+      <button class="ghost" id="newChat2" style="border:none;background:transparent;color:var(--slate);font-size:12.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;cursor:pointer">+ New Chat</button>
+      <button class="cfgbtn" id="cfgBtn" style="border:1px solid #e0e4e6;background:#fff;color:var(--slate);font-size:12.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;border-radius:8px;padding:8px 12px">⚙ config.py</button>
+    </div>
+
+    <div class="scroll" id="thread" style="flex:1;overflow-y:auto"></div>
+
+    <div style="flex:none;border-top:1px solid var(--line);background:#fff;padding:16px 28px 20px">
+      <div style="max-width:768px;margin:0 auto">
+        <div style="background:#f7f8f9;border:1.5px solid #e0e4e6;border-radius:14px;padding:12px 14px 10px">
+          <textarea id="input" rows="1" placeholder="Ask about tank cars, leasing, maintenance, demurrage…" style="width:100%;border:none;outline:none;resize:none;background:transparent;font-size:15px;line-height:1.5;color:var(--ink);max-height:180px;font-family:inherit"></textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+            <div style="font-size:12px;color:var(--muted);font-weight:600">🔍 Retrieval-augmented · top <span id="topkLabel">8</span> chunks</div>
+            <button class="send" id="sendBtn" style="width:38px;height:38px;border-radius:9px;border:none;background:var(--orange);color:#fff;font-size:18px;cursor:pointer">↑</button>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:#a5aaac;margin-top:9px">Answers are grounded in indexed TrinityRail documents. Verify critical specs against source sheets.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<style>
+  .lbl{font-size:10px;font-weight:700;letter-spacing:.8px;color:#9aa1a4;margin-bottom:9px}
+  .k{display:block;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--slate);margin-bottom:5px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .v{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:700;color:var(--ink)}
+</style>
+
+<script>
+const API = ""; // same origin
+const $ = s => document.querySelector(s);
+let CFG = {EMBEDDING_MODEL:"all-MiniLM-L6-v2",CHUNK_SIZE:1000,CHUNK_OVERLAP:200,CHROMA_COLLECTION_NAME:"documents",TOP_K:8,LLM_MODEL:"gpt-4o-mini"};
+let CHOICES = {embedding:[],llm:[]};
+let messages = [];      // {role, text, sources, metrics, config, thinking}
+let recents = [];
+let lastQuestion = "";
+let busy = false;
+
+const PROMPTS = [
+  {tag:"PRODUCTS",text:"What tank cars does TrinityRail offer?"},
+  {tag:"LEASING",text:"What are the benefits of leasing railcars versus buying?"},
+  {tag:"OPERATIONS",text:"What is demurrage and how do I dispute it?"},
+  {tag:"LOGISTICS",text:"How does TrinityRail's railcar maintenance work?"},
+];
+
+// ---------- drawers ----------
+function openDrawer(which){
+  $("#left").style.transform = which==="left" ? "translateX(0)" : "translateX(-100%)";
+  $("#right").style.transform = which==="right" ? "translateX(0)" : "translateX(100%)";
+  $("#left").style.boxShadow = which==="left" ? "8px 0 40px rgba(35,40,43,.22)" : "none";
+  $("#right").style.boxShadow = which==="right" ? "-8px 0 40px rgba(35,40,43,.22)" : "none";
+  const any = which==="left"||which==="right";
+  $("#backdrop").style.opacity = any?"1":"0";
+  $("#backdrop").style.pointerEvents = any?"auto":"none";
+  $("#cfgBtn").style.background = which==="right"?"#fbeee6":"#fff";
+  $("#cfgBtn").style.color = which==="right"?"var(--orange)":"var(--slate)";
+}
+function closeDrawers(){ openDrawer(null); }
+$("#menuBtn").onclick = ()=>openDrawer("left");
+$("#cfgBtn").onclick = ()=> ($("#right").style.transform==="translateX(0px)"? closeDrawers():openDrawer("right"));
+$("#backdrop").onclick = closeDrawers;
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeDrawers);
+
+// ---------- config ----------
+async function loadConfig(){
+  try{
+    const r = await fetch(API+"/api/config"); const d = await r.json();
+    CFG = d.config; CHOICES.embedding = d.embedding_choices; CHOICES.llm = d.llm_choices;
+    fillSelect($("#cfgEmbed"), CHOICES.embedding, CFG.EMBEDDING_MODEL);
+    fillSelect($("#cfgLlm"), CHOICES.llm, CFG.LLM_MODEL);
+    syncConfigUI(); updateFooter(d.indexed_chunks);
+  }catch(e){ console.warn("config load failed", e); }
+}
+function fillSelect(sel, opts, value){
+  sel.innerHTML = opts.map(o=>`<option value="${o.value}" ${o.value===value?"selected":""}>${o.label}</option>`).join("");
+}
+function syncConfigUI(){
+  $("#cfgChunk").value = CFG.CHUNK_SIZE; $("#valChunk").textContent = CFG.CHUNK_SIZE;
+  $("#cfgOverlap").value = CFG.CHUNK_OVERLAP; $("#valOverlap").textContent = CFG.CHUNK_OVERLAP;
+  $("#cfgTopk").value = CFG.TOP_K; $("#valTopk").textContent = CFG.TOP_K;
+  $("#cfgCollection").value = CFG.CHROMA_COLLECTION_NAME;
+  $("#topkLabel").textContent = CFG.TOP_K;
+}
+function updateFooter(chunks){
+  $("#footCollection").textContent = CFG.CHROMA_COLLECTION_NAME;
+  $("#footChunks").textContent = "ChromaDB · " + (chunks==null?"—":chunks) + " chunks indexed";
+}
+let reindexNeeded = false;
+$("#cfgEmbed").onchange = e=>{ CFG.EMBEDDING_MODEL=e.target.value; markReindex(); };
+$("#cfgLlm").onchange = e=>{ CFG.LLM_MODEL=e.target.value; };
+$("#cfgChunk").oninput = e=>{ CFG.CHUNK_SIZE=+e.target.value; $("#valChunk").textContent=e.target.value; markReindex(); };
+$("#cfgOverlap").oninput = e=>{ CFG.CHUNK_OVERLAP=+e.target.value; $("#valOverlap").textContent=e.target.value; markReindex(); };
+$("#cfgTopk").oninput = e=>{ CFG.TOP_K=+e.target.value; $("#valTopk").textContent=e.target.value; $("#topkLabel").textContent=e.target.value; };
+$("#cfgCollection").oninput = e=>{ CFG.CHROMA_COLLECTION_NAME=e.target.value||"documents"; markReindex(); };
+function markReindex(){ reindexNeeded=true; $("#reindexNote").style.display="block"; }
+
+async function putConfig(){
+  const r = await fetch(API+"/api/config",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(CFG)});
+  return r.json();
+}
+async function doReindex(){
+  $("#reindexBtn").textContent="Re-indexing… (may take a while)"; $("#reindexBtn").disabled=true;
+  try{
+    await putConfig();
+    const r = await fetch(API+"/api/reindex",{method:"POST"}); const d = await r.json();
+    updateFooter(d.chunks); reindexNeeded=false; $("#reindexNote").style.display="none";
+  }catch(e){ alert("Re-index failed: "+e); }
+  $("#reindexBtn").textContent="Re-index vector store"; $("#reindexBtn").disabled=false;
+}
+$("#reindexBtn").onclick = doReindex;
+$("#rerunBtn").onclick = async ()=>{
+  if(!lastQuestion||busy) return;
+  await putConfig();
+  if(reindexNeeded){ await doReindex(); }
+  closeDrawers();
+  send(lastQuestion);
+};
+
+// ---------- chat ----------
+function newChat(){ messages=[]; lastQuestion=""; closeDrawers(); render(); $("#input").focus(); }
+$("#newChat").onclick=newChat; $("#newChat2").onclick=newChat;
+$("#sendBtn").onclick=()=>send();
+$("#input").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();} });
+$("#input").addEventListener("input",e=>{ e.target.style.height="auto"; e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"; });
+
+async function send(forced){
+  if(busy) return;
+  const ta=$("#input");
+  const text=(forced!=null?String(forced):ta.value).trim();
+  if(!text) return;
+  if(forced==null){ ta.value=""; ta.style.height="auto"; }
+  lastQuestion=text; updateRerun();
+  if(!recents.includes(text)) recents.unshift(text);
+  messages.push({role:"user",text});
+  const bot={role:"bot",thinking:true,thinkingLabel:"Retrieving from indexed documents…",text:"",sources:[],metrics:null,config:null};
+  messages.push(bot);
+  busy=true; render(); scrollBottom();
+
+  try{
+    const r = await fetch(API+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:text})});
+    if(!r.ok){ const err=await r.json().catch(()=>({detail:r.statusText})); throw new Error(err.detail||("HTTP "+r.status)); }
+    const d = await r.json();
+    bot.sources=d.sources.map(s=>({label:prettyLabel(s.source),sim:s.similarity}));
+    bot.metrics=d.metrics; bot.config=snapshot(d.metrics);
+    bot.thinking=false;
+    await reveal(bot, d.answer||"No answer produced.");
+    updateFooter(d.metrics.chunks!=null?undefined:null); // footer chunk count refreshed on config load
+  }catch(e){
+    bot.thinking=false; bot.text="⚠️ "+e.message;
+    render();
+  }
+  busy=false; render(); $("#input").focus();
+}
+
+function snapshot(m){ return {embed:m.embed_model,dims:m.dims,topK:m.top_k,llm:m.llm_model,chunk:m.chunk_size,overlap:m.chunk_overlap}; }
+function prettyLabel(f){ return f.replace("www.trinityrail.com_","").replace(".pdf","").replace(/_/g,"/"); }
+
+async function reveal(bot, full){
+  const toks = full.split(/(\s+)/); let acc="";
+  for(let i=0;i<toks.length;i++){ acc+=toks[i]; if(i%3===0||i===toks.length-1){ bot.text=acc; render(); scrollBottom(); await new Promise(r=>setTimeout(r,12)); } }
+  bot.text=full; render();
+}
+
+function updateRerun(){
+  const on = !!lastQuestion && !busy;
+  const b=$("#rerunBtn");
+  b.disabled=!on;
+  b.style.background=on?"var(--orange)":"#c9ccce";
+  b.style.cursor=on?"pointer":"not-allowed";
+  $("#rerunHint").innerHTML = lastQuestion ? ('Re-run last question to compare:<br><span style="color:#3a4245;font-weight:600">“'+esc(lastQuestion)+'”</span>') : "Ask a question, then change settings and re-run it to compare performance.";
+}
+
+// ---------- render ----------
+function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  updateRerun();
+  const t=$("#thread");
+  $("#topkLabel").textContent=CFG.TOP_K;
+  // recents
+  $("#recent").innerHTML = recents.length ? recents.slice(0,20).map(q=>`<button class="rec" style="width:100%;text-align:left;display:flex;gap:9px;background:transparent;border:none;border-radius:7px;padding:9px 11px;cursor:pointer;color:#3a4245;font-size:14px" onmouseover="this.style.background='rgba(122,146,155,.14)'" onmouseout="this.style.background='transparent'">💬 <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(q)}</span></button>`).join("") : '<div style="padding:10px 12px;font-size:13.5px;color:#9aa1a4">Your conversations will appear here.</div>';
+  document.querySelectorAll("#recent .rec").forEach((b,i)=>b.onclick=()=>{ closeDrawers(); send(recents[i]); });
+
+  if(messages.length===0){ t.innerHTML=emptyState(); document.querySelectorAll("#thread .chip").forEach((c,i)=>c.onclick=()=>send(PROMPTS[i].text)); return; }
+
+  t.innerHTML = `<div style="max-width:768px;margin:0 auto;padding:30px 28px 44px">${messages.map(msgHTML).join("")}</div>`;
+  // render markdown bodies
+  messages.forEach((m,i)=>{ if(m.role==="bot"&&m.text){ const el=document.getElementById("body"+i); if(el) el.innerHTML=marked.parse(m.text); } });
+}
+
+function emptyState(){
+  return `<div style="max-width:740px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;justify-content:center;padding:40px 28px 80px">
+    <img src="assets/trinity-mark.png" alt="" style="width:66px;height:66px;object-fit:contain;margin:0 auto 24px">
+    <h1 style="font-weight:700;font-size:34px;text-align:center;margin:0 0 10px;color:var(--ink);text-transform:uppercase;line-height:1.15">How Can We Help<br>With Your <span style="color:var(--orange)">Fleet?</span></h1>
+    <p style="text-align:center;font-size:16px;color:#667077;margin:0 auto 32px;max-width:560px;line-height:1.55">Ask anything about <em style="color:var(--slate);font-weight:600">TrinityRail</em> railcars, leasing, maintenance, and logistics. Answers are grounded in indexed documents.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      ${PROMPTS.map(p=>`<button class="chip" style="text-align:left;background:#fafbfb;border:1px solid #e3e7e9;border-radius:10px;padding:15px 16px;cursor:pointer;display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--orange);letter-spacing:.8px">${p.tag}</span>
+        <span style="font-size:14.5px;color:#3a4245;font-weight:600;line-height:1.4">${esc(p.text)}</span></button>`).join("")}
+    </div></div>`;
+}
+
+function msgHTML(m,i){
+  if(m.role==="user"){
+    return `<div style="margin-bottom:26px;animation:fade .3s ease both;display:flex;justify-content:flex-end">
+      <div style="max-width:80%;background:var(--slate);color:#fff;padding:12px 16px;border-radius:14px 14px 3px 14px;font-size:15px;line-height:1.5;white-space:pre-wrap">${esc(m.text)}</div></div>`;
+  }
+  const cfgLine = m.config ? `<div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#9aa1a4;margin:-3px 0 9px"><span style="color:var(--orange);font-weight:600">run config</span> ${m.config.embed} · ${m.config.dims}-d · top-k ${m.config.topK} · ${m.config.llm} · chunk ${m.config.chunk}/${m.config.overlap}</div>` : "";
+  const thinking = m.thinking ? `<div style="display:flex;align-items:center;gap:9px;color:var(--muted);font-size:14px">
+      <span style="display:inline-flex;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--slate);animation:blink 1.4s infinite"></span><span style="width:7px;height:7px;border-radius:50%;background:var(--slate);animation:blink 1.4s infinite .2s"></span><span style="width:7px;height:7px;border-radius:50%;background:var(--slate);animation:blink 1.4s infinite .4s"></span></span>${m.thinkingLabel||"Thinking…"}</div>` : "";
+  const body = m.text ? `<div class="md" id="body${i}" style="font-size:15px;line-height:1.62;color:#33393b"></div>` : "";
+  return `<div style="margin-bottom:26px;animation:fade .3s ease both;display:flex;gap:13px;align-items:flex-start">
+    <img src="assets/trinity-mark.png" alt="" style="width:32px;height:32px;object-fit:contain;margin-top:2px;flex:none">
+    <div style="min-width:0;flex:1">
+      <div style="font-size:11px;font-weight:700;color:var(--slate);letter-spacing:1px;margin-bottom:8px">ASK TRINITY</div>
+      ${cfgLine}${thinking}${body}
+      ${m.sources&&m.sources.length?sourcesHTML(m.sources):""}
+      ${m.metrics?metricsHTML(m.metrics,m.sources):""}
+    </div></div>`;
+}
+
+function sourcesHTML(sources){
+  return `<div style="margin-top:15px;padding-top:13px;border-top:1px solid var(--line)">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--muted);margin-bottom:8px">📄 RETRIEVED SOURCES</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px">${sources.map(s=>`<span style="display:inline-flex;align-items:center;gap:7px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#5c6468;background:#f6f7f8;border:1px solid #e3e7e9;border-radius:6px;padding:5px 8px 5px 9px"><span style="width:6px;height:6px;border-radius:50%;background:var(--slate)"></span>${esc(s.label)}<span style="font-weight:600;color:var(--orange);background:#fff;border:1px solid #eadfd6;border-radius:4px;padding:1px 5px;font-size:10.5px">${s.sim.toFixed(2)}</span></span>`).join("")}</div></div>`;
+}
+
+function metricsHTML(m,sources){
+  const stages=[
+    {n:"Embed query",s:m.dims+"-d vector",v:m.embed_ms+" ms",c:"#7a929b",a:false},
+    {n:"Vector search",s:"ChromaDB · cosine",v:m.search_ms+" ms",c:"#7a929b",a:true},
+    {n:"Augment",s:m.chunks+" chunks · "+m.context_tokens+" tok",v:"context",c:"#8a9296",a:true},
+    {n:"Generate",s:m.llm_model,v:m.gen_ms+" ms",c:"#be4d00",a:true},
+  ];
+  const stats=[["Total latency",m.total_ms+" ms"],["Context",m.context_tokens+" tok"],["Output",m.output_tokens+" tok"],["Avg relevance",(m.avg_similarity||0).toFixed(2)]];
+  const bars=(sources||[]).map(s=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5c6468;width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none">${esc(s.label)}</span><div style="flex:1;height:7px;background:#e7eaec;border-radius:20px;overflow:hidden"><div style="height:100%;width:${Math.round(s.sim*100)}%;background:linear-gradient(90deg,#7a929b,#5f7a84);border-radius:20px"></div></div><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;color:#3a4245;width:34px;text-align:right;flex:none">${s.sim.toFixed(2)}</span></div>`).join("");
+  return `<div style="margin-top:14px;background:#f7f8f9;border:1px solid #e4e8ea;border-radius:10px;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid var(--line);background:#fff">
+      <span style="color:var(--orange);font-weight:700">📈</span><span style="font-size:11px;font-weight:700;letter-spacing:.9px;color:#5c6468">RAG PIPELINE PERFORMANCE</span><span style="flex:1"></span>
+      <span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#9aa1a4">${m.embed_model} · top-k ${m.top_k} · ${m.llm_model}</span></div>
+    <div style="display:flex;align-items:stretch;flex-wrap:wrap;gap:6px;padding:14px 14px 8px">
+      ${stages.map(st=>`<div style="display:flex;align-items:center;gap:6px">${st.a?'<span style="color:#c4cacd;font-weight:700">→</span>':''}<div style="min-width:96px;background:#fff;border:1px solid #e4e8ea;border-radius:8px;padding:8px 10px"><div style="font-size:11px;font-weight:700;color:#3a4245">${st.n}</div><div style="font-size:10px;color:#9aa1a4;margin:2px 0 4px">${st.s}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:${st.c}">${st.v}</div></div></div>`).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:6px 14px 12px">
+      ${stats.map(s=>`<div style="background:#fff;border:1px solid #e4e8ea;border-radius:8px;padding:8px 10px"><div style="font-size:9.5px;font-weight:700;letter-spacing:.5px;color:#9aa1a4;text-transform:uppercase">${s[0]}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:600;color:var(--ink);margin-top:3px">${s[1]}</div></div>`).join("")}
+    </div>
+    <div style="padding:2px 14px 14px"><div style="font-size:9.5px;font-weight:700;letter-spacing:.6px;color:#9aa1a4;text-transform:uppercase;margin-bottom:7px">Chunk relevance (cosine similarity)</div>${bars}</div>
+  </div>`;
+}
+
+function scrollBottom(){ const t=$("#thread"); t.scrollTop=t.scrollHeight; }
+
+// ---------- boot ----------
+loadConfig();
+render();
+</script>
+</body>
+</html>

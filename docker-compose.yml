@@ -1,0 +1,27 @@
+services:
+  trinity-rag:
+    build: ./backend
+    container_name: trinity-rag
+    ports:
+      - "8000:8000"
+    environment:
+      # Required for the generation step. Put it in a .env file next to this one:
+      #   OPENAI_API_KEY=sk-...
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PDF_DIR=/data/pdfs
+      - CHROMA_DIR=/data/chroma_db
+      # Optional startup defaults (also editable live in the UI):
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=200
+      - CHROMA_COLLECTION_NAME=documents
+      - TOP_K=8
+      - LLM_MODEL=gpt-4o-mini
+    volumes:
+      # Drop your TrinityRail PDFs here; they are indexed on first boot.
+      - ./backend/pdfs:/data/pdfs
+      # Persist the vector DB across restarts.
+      - chroma_data:/data/chroma_db
+
+volumes:
+  chroma_data:
