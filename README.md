@@ -13,6 +13,22 @@ PDFs → parse (pdfplumber) → chunk → embed → ChromaDB
         question → embed → vector search → augment → LLM → answer + metrics
 ```
 
+## Demo
+
+![Ask Trinity — animated walkthrough](docs/media/demo.gif)
+
+▶️ **[Watch the full-quality walkthrough (MP4, 1080p)](docs/media/ask-trinity-promo.mp4)**
+
+### Screenshots
+
+| Chat welcome | Live `config.py` drawer |
+| :--: | :--: |
+| ![Welcome screen with suggested prompts](docs/media/welcome.png) | ![Live retrieval & generation settings](docs/media/config.png) |
+
+| How it works | RAG performance panel |
+| :--: | :--: |
+| ![RAG pipeline: index once, ask every question](docs/media/how-it-works.png) | ![Grounded answer with per-source similarity and latency metrics](docs/media/performance.png) |
+
 ## Stack
 - **Backend:** FastAPI + ChromaDB (persistent) + sentence-transformers / OpenAI embeddings + OpenAI chat.
 - **Frontend:** single static `index.html` (no build step), served by the same container.
@@ -91,11 +107,23 @@ uvicorn app:app --reload --port 8000
 - **Costs:** generation and OpenAI embeddings call the OpenAI API and incur usage
   charges. Local embeddings + your own PDFs keep indexing free.
 
+## Promo video (source)
+The animated walkthrough in [Demo](#demo) is generated from code with
+[Remotion](https://www.remotion.dev/) — it lives in `video/`.
+```bash
+cd video
+npm install
+npm run preview   # live editor at localhost:3000
+npm run render    # → out/ask-trinity-promo.mp4
+```
+
 ## Layout
 ```
 trinity-rag-app/
 ├── docker-compose.yml
 ├── .env.example
+├── docs/media/               # README video + screenshots
+├── video/                    # Remotion promo-video project
 └── backend/
     ├── Dockerfile
     ├── requirements.txt
