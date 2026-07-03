@@ -1,0 +1,8 @@
+# Bake a fresh index at build time — never copy a stale/local store.
+chroma_db/
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.DS_Store
+pdfs/_crawl.log
