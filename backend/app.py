@@ -8,15 +8,18 @@ Endpoints
   POST /api/chat  {question}  -> {answer, sources, metrics}
   /                           -> static frontend (frontend/index.html)
 """
+import os
 import threading
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from rag import config, pipeline, store
+from rag import config, pipeline, processor, store
+
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
 
 app = FastAPI(title="Ask Trinity — RAG API")
 app.add_middleware(
@@ -106,6 +109,38 @@ def reindex():
         finally:
             _reindex_status["running"] = False
     return {"status": "done", **result}
+
+
+@app.post("/api/upload")
+async def upload(file: UploadFile = File(...)):
+    name = os.path.basename(file.filename or "")
+    if not name:
+        raise HTTPException(status_code=400, detail="No filename provided")
+    ext = os.path.splitext(name)[1].lower()
+    if ext not in processor.SUPPORTED_EXTS:
+        allowed = ", ".join(sorted(processor.SUPPORTED_EXTS))
+        raise HTTPException(status_code=400, detail=f"Unsupported file type '{ext or name}'. Allowed: {allowed}")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)")
+
+    os.makedirs(config.DOCS_DIR, exist_ok=True)
+    dest = os.path.join(config.DOCS_DIR, name)
+    with open(dest, "wb") as fh:
+        fh.write(data)
+
+    try:
+        result = store.add_document(CONFIG, dest)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Indexing failed: {e}")
+
+    if result["chunks"] == 0:
+        raise HTTPException(status_code=422, detail="No text could be extracted from this document")
+
+    return {"status": "done", **result, "indexed_chunks": store.collection_count(CONFIG)}
 
 
 @app.post("/api/chat")

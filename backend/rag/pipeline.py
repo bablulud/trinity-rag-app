@@ -44,7 +44,7 @@ def answer(cfg: Dict, question: str) -> Dict:
     if not docs:
         return {
             "answer": "The index is empty or no relevant chunks were found. "
-                      "Add PDFs and re-index, or rephrase your question.",
+                      "Add documents and re-index, or rephrase your question.",
             "sources": [],
             "metrics": _metrics(cfg, model, embed_ms, search_ms, 0, 0, 0, 0, 0.0),
         }

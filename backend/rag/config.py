@@ -17,7 +17,13 @@ DEFAULTS = {
 }
 
 # --- Fixed paths / secrets ------------------------------------------------
-PDF_DIR = os.getenv("PDF_DIR", os.path.join(os.path.dirname(__file__), "..", "pdfs"))
+# Directory of source documents to index. Accepts crawled web pages (.md/.html/
+# .txt), PDFs, and images (OCR). `PDF_DIR` is honored as a fallback so existing
+# TrinityRail PDF setups keep working unchanged.
+DOCS_DIR = os.getenv(
+    "DOCS_DIR",
+    os.getenv("PDF_DIR", os.path.join(os.path.dirname(__file__), "..", "pdfs")),
+)
 CHROMA_DIR = os.getenv("CHROMA_DIR", os.path.join(os.path.dirname(__file__), "..", "chroma_db"))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 

@@ -6,9 +6,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Build deps for chromadb / sentence-transformers wheels.
+# Build deps for chromadb / sentence-transformers wheels, plus the Tesseract
+# engine for OCR of scanned PDFs and image uploads (pypdfium2 handles
+# rasterization, so no poppler is needed).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

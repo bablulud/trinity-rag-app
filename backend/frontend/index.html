@@ -52,6 +52,8 @@
   .send:hover,.newbtn:hover,.rerun:not([disabled]):hover{background:var(--orange-d)!important}
   .ghost:hover{color:var(--orange)!important}
   .cfgbtn:hover{border-color:var(--slate)!important;color:var(--orange)!important}
+  details>summary::-webkit-details-marker{display:none}
+  details[open] .tri{transform:rotate(90deg)}
 </style>
 </head>
 <body>
@@ -120,10 +122,11 @@
   <main style="height:100%;display:flex;flex-direction:column;background:#fff">
     <div style="height:58px;flex:none;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 18px">
       <button class="icon" id="menuBtn" style="width:38px;height:38px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-size:18px">☰</button>
-      <img src="assets/trinity-mark.png" alt="" style="width:30px;height:30px;object-fit:contain">
-      <div style="font-weight:700;font-size:16px;color:var(--ink)">Ask <span style="color:var(--slate)">Trinity</span></div>
+      <img id="homeLogo" src="assets/trinity-mark.png" alt="" title="New chat" style="width:30px;height:30px;object-fit:contain;cursor:pointer">
+      <div id="homeTitle" title="New chat" style="font-weight:700;font-size:16px;color:var(--ink);cursor:pointer">Ask <span style="color:var(--slate)">Trinity</span></div>
       <div style="flex:1"></div>
       <button class="ghost" id="newChat2" style="border:none;background:transparent;color:var(--slate);font-size:12.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;cursor:pointer">+ New Chat</button>
+      <button class="ghost" id="docBtn" style="border:none;background:transparent;color:var(--slate);font-size:12.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;cursor:pointer">+ Document</button>
       <button class="cfgbtn" id="cfgBtn" style="border:1px solid #e0e4e6;background:#fff;color:var(--slate);font-size:12.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;border-radius:8px;padding:8px 12px">⚙ config.py</button>
     </div>
 
@@ -142,6 +145,31 @@
       </div>
     </div>
   </main>
+
+  <!-- UPLOAD DOCUMENT MODAL -->
+  <div id="uploadModal" style="position:absolute;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px">
+    <div id="uploadOverlay" style="position:absolute;inset:0;background:rgba(35,40,43,.45)"></div>
+    <div style="position:relative;width:100%;max-width:480px;background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(35,40,43,.35);overflow:hidden;animation:fade .25s ease both">
+      <div style="padding:18px 20px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line)">
+        <span style="color:var(--orange);font-weight:700;font-size:18px">＋</span>
+        <div style="flex:1;line-height:1.1">
+          <div style="font-weight:700;font-size:16px;color:var(--ink)">Upload Document</div>
+          <div style="font-size:11px;color:var(--muted);font-weight:600">Add a file to the knowledge base</div>
+        </div>
+        <button class="icon" id="uploadClose" style="width:32px;height:32px;border:none;background:transparent;border-radius:8px;cursor:pointer">✕</button>
+      </div>
+      <div style="padding:20px">
+        <div id="dropzone" style="border:2px dashed #cfd5d8;border-radius:12px;background:#fafbfb;padding:34px 22px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s">
+          <div style="font-size:34px;line-height:1;margin-bottom:12px">📄</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:5px">Drag &amp; drop a file here</div>
+          <div style="font-size:13px;color:var(--muted)">or <span style="color:var(--orange);font-weight:700;text-decoration:underline;text-underline-offset:2px">browse your computer</span></div>
+          <div style="font-size:11px;color:#a5aaac;margin-top:12px">PDF · TXT · Markdown · HTML · Images (OCR) — up to 25&nbsp;MB</div>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.html,.htm,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" style="display:none">
+        <div id="uploadStatus" style="display:none;margin-top:14px;font-size:13px;line-height:1.5;padding:11px 13px;border-radius:9px"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -244,6 +272,40 @@ $("#rerunBtn").onclick = async ()=>{
 // ---------- chat ----------
 function newChat(){ messages=[]; lastQuestion=""; closeDrawers(); render(); $("#input").focus(); }
 $("#newChat").onclick=newChat; $("#newChat2").onclick=newChat;
+$("#homeLogo").onclick=newChat; $("#homeTitle").onclick=newChat;
+
+// ---------- upload document ----------
+function openUpload(){ closeDrawers(); resetUploadStatus(); $("#uploadModal").style.display="flex"; }
+function closeUpload(){ $("#uploadModal").style.display="none"; $("#fileInput").value=""; }
+function resetUploadStatus(){ const s=$("#uploadStatus"); s.style.display="none"; s.textContent=""; }
+function setStatus(kind,html){
+  const s=$("#uploadStatus"), c={info:["#5c6468","#f6f7f8","#e3e7e9"],ok:["#2f6b3a","#eef7f0","#cfe6d5"],err:["#a83f00","#fbeee6","#f0d9c8"]}[kind];
+  s.style.display="block"; s.style.color=c[0]; s.style.background=c[1]; s.style.border="1px solid "+c[2]; s.innerHTML=html;
+}
+$("#docBtn").onclick=openUpload;
+$("#uploadClose").onclick=closeUpload;
+$("#uploadOverlay").onclick=closeUpload;
+$("#dropzone").onclick=()=>$("#fileInput").click();
+$("#fileInput").onchange=e=>{ if(e.target.files.length) uploadFile(e.target.files[0]); };
+const dz=$("#dropzone");
+["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{ e.preventDefault(); dz.style.borderColor="var(--orange)"; dz.style.background="#fdf3ec"; }));
+["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{ e.preventDefault(); dz.style.borderColor="#cfd5d8"; dz.style.background="#fafbfb"; }));
+dz.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) uploadFile(f); });
+
+async function uploadFile(file){
+  setStatus("info",`⏳ Uploading &amp; indexing <strong>${esc(file.name)}</strong>…`);
+  const fd=new FormData(); fd.append("file",file);
+  try{
+    const r=await fetch(API+"/api/upload",{method:"POST",body:fd});
+    const d=await r.json().catch(()=>({detail:r.statusText}));
+    if(!r.ok) throw new Error(d.detail||("HTTP "+r.status));
+    setStatus("ok",`✅ Indexed <strong>${esc(d.file)}</strong> — ${d.chunks} chunk${d.chunks===1?"":"s"} added. <span style="color:#5c6468">${d.indexed_chunks} total.</span>`);
+    updateFooter(d.indexed_chunks);
+    $("#fileInput").value="";
+  }catch(e){
+    setStatus("err","⚠️ "+esc(e.message));
+  }
+}
 $("#sendBtn").onclick=()=>send();
 $("#input").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();} });
 $("#input").addEventListener("input",e=>{ e.target.style.height="auto"; e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"; });
@@ -278,7 +340,7 @@ async function send(forced){
 }
 
 function snapshot(m){ return {embed:m.embed_model,dims:m.dims,topK:m.top_k,llm:m.llm_model,chunk:m.chunk_size,overlap:m.chunk_overlap}; }
-function prettyLabel(f){ return f.replace("www.trinityrail.com_","").replace(".pdf","").replace(/_/g,"/"); }
+function prettyLabel(f){ return f.replace(/^www\.trinityrail\.com_/,"").replace(/\.(md|markdown|txt|html?|pdf)$/i,"").replace(/[-_]/g," ").replace(/\s+/g," ").trim(); }
 
 async function reveal(bot, full){
   const toks = full.split(/(\s+)/); let acc="";
@@ -328,7 +390,7 @@ function emptyState(){
 function msgHTML(m,i){
   if(m.role==="user"){
     return `<div style="margin-bottom:26px;animation:fade .3s ease both;display:flex;justify-content:flex-end">
-      <div style="max-width:80%;background:var(--slate);color:#fff;padding:12px 16px;border-radius:14px 14px 3px 14px;font-size:15px;line-height:1.5;white-space:pre-wrap">${esc(m.text)}</div></div>`;
+      <div style="max-width:80%;background:var(--orange);color:#fff;padding:12px 16px;border-radius:14px 14px 3px 14px;font-size:15px;line-height:1.5;white-space:pre-wrap">${esc(m.text)}</div></div>`;
   }
   const cfgLine = m.config ? `<div style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#9aa1a4;margin:-3px 0 9px"><span style="color:var(--orange);font-weight:600">run config</span> ${m.config.embed} · ${m.config.dims}-d · top-k ${m.config.topK} · ${m.config.llm} · chunk ${m.config.chunk}/${m.config.overlap}</div>` : "";
   const thinking = m.thinking ? `<div style="display:flex;align-items:center;gap:9px;color:var(--muted);font-size:14px">
@@ -345,9 +407,10 @@ function msgHTML(m,i){
 }
 
 function sourcesHTML(sources){
-  return `<div style="margin-top:15px;padding-top:13px;border-top:1px solid var(--line)">
-    <div style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--muted);margin-bottom:8px">📄 RETRIEVED SOURCES</div>
-    <div style="display:flex;flex-wrap:wrap;gap:7px">${sources.map(s=>`<span style="display:inline-flex;align-items:center;gap:7px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#5c6468;background:#f6f7f8;border:1px solid #e3e7e9;border-radius:6px;padding:5px 8px 5px 9px"><span style="width:6px;height:6px;border-radius:50%;background:var(--slate)"></span>${esc(s.label)}<span style="font-weight:600;color:var(--orange);background:#fff;border:1px solid #eadfd6;border-radius:4px;padding:1px 5px;font-size:10.5px">${s.sim.toFixed(2)}</span></span>`).join("")}</div></div>`;
+  return `<details style="margin-top:15px;padding-top:13px;border-top:1px solid var(--line)">
+    <summary style="font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--muted);cursor:pointer;list-style:none;display:flex;align-items:center;gap:7px;user-select:none">
+      <span class="tri" style="display:inline-block;font-size:9px;color:#c4cacd;transition:transform .15s">▶</span>📄 RETRIEVED SOURCES <span style="color:#c4cacd;font-weight:600">(${sources.length})</span></summary>
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:9px">${sources.map(s=>`<span style="display:inline-flex;align-items:center;gap:7px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#5c6468;background:#f6f7f8;border:1px solid #e3e7e9;border-radius:6px;padding:5px 8px 5px 9px"><span style="width:6px;height:6px;border-radius:50%;background:var(--slate)"></span>${esc(s.label)}<span style="font-weight:600;color:var(--orange);background:#fff;border:1px solid #eadfd6;border-radius:4px;padding:1px 5px;font-size:10.5px">${s.sim.toFixed(2)}</span></span>`).join("")}</div></details>`;
 }
 
 function metricsHTML(m,sources){
